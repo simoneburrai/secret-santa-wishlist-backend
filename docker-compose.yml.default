@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine # Versione leggera di Postgres
+    container_name: secret-santa
+    restart: always
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: secret-santa-db
+    ports:
+      - "portalocale:portacontainer" # Mappa la porta locale alla porta del container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persistenza dei dati
+
+volumes:
+  postgres_data:
