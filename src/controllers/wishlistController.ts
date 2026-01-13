@@ -4,6 +4,8 @@ import type { Wishlist, Gift } from "../types";
 
 async function createWishlist(req: Request, res: Response, _next: NextFunction){
 
+    const client = await pool.connect();
+
     const wishlist: Wishlist = req.body;
     const { name, gifts, userId } = wishlist;
 
@@ -21,22 +23,45 @@ async function createWishlist(req: Request, res: Response, _next: NextFunction){
     }
 
     try {
-         const newWishlist = await pool.query(
-        `INSERT INTO wishlists (name, user_id)  VALUES ($1, $2) RETURNING id, name, created_at, share_token`, [name, userId]);
+         await client.query('BEGIN');
 
+         const newWishlist = await client.query(
+        `INSERT INTO wishlists (name, user_id, is_published)  VALUES ($1, $2, $3) RETURNING id, name, created_at, share_token`, [name, userId, true]);
+        
+        
         if(!newWishlist){
             throw new Error("Database Error: Creazione Wishlist non avvenuta");
         }
 
-        if(newWishlist.rowCount && newWishlist.rowCount > 0){
-            res.status(201).json({msg: "Creazione Wishlist avvenuta con successo", wishlist: newWishlist.rows[0]})
-            return;
-        }else {
-            throw new Error("Il database non ha confermato l'inserimento");
+        if(!newWishlist.rowCount){
+            throw new Error("Il database non ha confermato l'inserimento")
         }
 
         const wishlistId = newWishlist.rows[0].id;
+
+        for (const gift of gifts) {
+    await client.query(
+        `INSERT INTO gift (wishlist_id, name, price, priority, link, notes, image) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+            wishlistId, 
+            gift.name, 
+            gift.price, 
+            gift.priority, 
+            gift.link ?? null,  
+            gift.notes ?? null,  
+            gift.image ?? null   
+        ]
+    );
+}
+
+        await client.query('COMMIT');
         
+        res.status(201).json({
+            msg: "Wishlist pubblicata con successo!",
+            shareToken: newWishlist.rows[0].share_token
+        });
+
 
     } catch (error) {
             console.error(error);
