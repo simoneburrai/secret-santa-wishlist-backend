@@ -104,9 +104,46 @@ async function getPublicWishlist(req: Request, res: Response) {
     }
 }
 
+async function deleteWishlist(req: Request, res: Response){
+    const {id} = req.params;
+
+    try {
+        if(!id){
+            res.status(400).json({msg: "Errore rimozione Wishlist, id mancante"});
+            return;
+        }
+
+        const parseId: number = parseInt(id, 10); 
+
+        if(isNaN(parseId)){
+            res.status(400).json({msg: "Id Wishlist errato, inserire un numero"});
+            return;
+        }
+
+        const removedWishlist = await pool.query('DELETE FROM wishlists WHERE id = $1 RETURNING id, name', [parseId]);
+
+        if(!removedWishlist.rowCount || removedWishlist.rowCount === 0){
+            res.status(404).json({msg: "Nessuna wishlist presente con l'ID inserito, la rimozione non è avvenuta"});
+            return;
+        }
+
+        res.status(200).json({msg: "Rimozione Wishlist avvenuta con successo", result: removedWishlist.rows[0]});
+
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({msg: "Errore rimozione wishlist dal Database"})
+    }
+}
+
+async function updateWishlist(req: Request, res: Response){
+
+}
 
 
 export {
     createWishlist,
-    getPublicWishlist
+    getPublicWishlist,
+    deleteWishlist,
+    updateWishlist
 }
