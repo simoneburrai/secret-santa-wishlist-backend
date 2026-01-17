@@ -1,19 +1,23 @@
-# NEXT TASKS
+## Feature: Gestione Preferiti
 
+Creare l'endpoint POST /wishlists/favorites/:id per aggiungere/rimuovere una lista dai preferiti.
 
-## 1. Authentication & Security
+Validare che l'utente non possa aggiungere la propria lista ai preferiti.
 
-- Implement JWT Middleware: Create a middleware to verify the Authorization: Bearer <token> header.
+## Feature: Prenotazione Regali
 
-- Protect Private Routes: Apply the auth middleware to POST, PATCH, and DELETE endpoints in the wishlistRouter.
+Creare l'endpoint PATCH /gifts/:id/book che permetta a chiunque (tramite il token della lista) di segnare un regalo come "preso".
 
-- Ownership Check: Refactor deleteWishlist and updateWishlist to ensure users can only modify their own resources (WHERE id = $1 AND user_id = $2).
+## Sicurezza e Validazione
 
+Implementare express-validator per validare i dati in ingresso (email corretta, nomi non vuoti).
 
-## 2. Image Management (Multer)
+Aggiungere un middleware per limitare la dimensione degli upload (Multer).
 
-- Configure Multer Middleware: Set up storage engine and file filters for image uploads.
+## Deploy Readiness
 
-- Static Files Serving: Add express.static to the main app file to make the uploads/ folder accessible via URL.
+Configurare il supporto a CORS per accettare richieste solo dal tuo dominio frontend.
 
-- Refactor Controllers for Multi-part Data: Update createWishlist and updateWishlist to parse JSON strings from FormData and map uploaded file paths to the correct gifts.
+Preparare lo script di migrazione SQL per inizializzare le tabelle su Neon.
+
+Gestire le variabili d'ambiente per la produzione.
