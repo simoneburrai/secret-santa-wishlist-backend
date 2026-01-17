@@ -6,91 +6,69 @@ interface AuthenticatedRequest extends Request {
     user?: { id: string; email: string }; 
 }
 
-async function createWishlist(req: AuthenticatedRequest , res: Response, _next: NextFunction): Promise<void>{
-
+async function createWishlist(req: AuthenticatedRequest, res: Response): Promise<void> {
     const client = await pool.connect();
-
-     if (!req.user) {
+    
+    try {
+        if (!req.user) {
             res.status(401).json({ msg: "Utente non autenticato" });
             return;
         }
-    
-        const userId = req.user.id; 
 
-    const wishlist: Wishlist = req.body;
-    const { name, gifts} = wishlist;
+        const { name, gifts } = req.body; 
+        const files = req.files as Express.Multer.File[];
 
-    if(!userId){
-        res.status(400).json({msg: "Errore Creazione Wishlist: Errore attribuzione proprietario"});
-        return;
-    }
-    if(!name || !(name.trim())){
-        res.status(400).json({msg: "Errore creazione Wishlist: Inserire un nome valido"});
-        return;
-    }
-    if(!gifts || gifts.length <= 0){
-        res.status(400).json({msg: "Errore creazione Wishlist: Inserire almeno un regalo valido"});
-        return;
-    }
+        await client.query('BEGIN');
 
-    try {
-         await client.query('BEGIN');
-
-         const newWishlist = await client.query(
-        `INSERT INTO wishlists (name, user_id, is_published)  VALUES ($1, $2, $3) RETURNING id, name, created_at, share_token`, [name, userId, true]);
+        // 1. Inserimento Wishlist
+        const newWishlist = await client.query(
+            `INSERT INTO wishlists (name, user_id, is_published) 
+             VALUES ($1, $2, $3) RETURNING id, share_token`, 
+            [name, req.user.id, true]
+        );
         
-        
-        if(!newWishlist){
-            throw new Error("Database Error: Creazione Wishlist non avvenuta");
-        }
-
-        if(!newWishlist.rowCount){
-            throw new Error("Il database non ha confermato l'inserimento")
-        }
-
         const wishlistId = newWishlist.rows[0].id;
 
-        for (const gift of gifts) {
-    await client.query(
-        `INSERT INTO gift (wishlist_id, name, price, priority, link, notes, image) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-            wishlistId, 
-            gift.name, 
-            gift.price, 
-            gift.priority, 
-            gift.link ?? null,  
-            gift.notes ?? null,  
-            gift.image ?? null   
-        ]
-    );
-}
+        for (let i = 0; i < gifts.length; i++) {
+            const gift = gifts[i];
+            
+         
+            const imagePath = files[i] ? files[i]!.path : null;
+
+            await client.query(
+                `INSERT INTO gift (wishlist_id, name, price, priority, link, notes, image) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    wishlistId, 
+                    gift.name, 
+                    gift.price, 
+                    gift.priority, 
+                    gift.link || null, 
+                    gift.notes || null, 
+                    imagePath // Salviamo il percorso del file nel DB
+                ]
+            );
+        }
 
         await client.query('COMMIT');
-        
-        res.status(201).json({
-            msg: "Wishlist pubblicata con successo!",
-            shareToken: newWishlist.rows[0].share_token
-        });
-
+        res.status(201).json({ shareToken: newWishlist.rows[0].share_token });
 
     } catch (error) {
-            console.error(error);
-            res.status(500).json({msg: "Database Error: Creazione Wishlist non avvenuta"})
-            return;
-    }finally {
-    client.release(); 
+        await client.query('ROLLBACK');
+        console.error(error);
+        res.status(500).json({ msg: "Errore durante la creazione della wishlist" });
+    } finally {
+        client.release();
     }
-   
-
-    }
+}
     
 
 async function getPublicWishlist(req: Request, res: Response): Promise<void> {
     const { token } = req.params; 
+    const protocol = req.protocol; // http o https
+    const host = req.get('host');  // localhost:3000 o il tuo dominio
 
     try {
-
         const result = await pool.query(
             `SELECT w.name as wishlist_name, g.* FROM wishlists w
              JOIN gift g ON w.id = g.wishlist_id
@@ -99,16 +77,21 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
         );
 
         if (result.rowCount === 0) {
-            res.status(404).json({ msg: "Wishlist non trovata o non ancora pubblicata" });
+            res.status(404).json({ msg: "Wishlist non trovata" });
             return;
         }
 
-    
         const wishlistData = {
             name: result.rows[0].wishlist_name,
             gifts: result.rows.map(row => {
-                const { wishlist_name, ...giftData } = row;
-                return giftData;
+                const imageUrl = row.image 
+                    ? `${protocol}://${host}/${row.image.replace(/\\/g, '/')}` 
+                    : null;
+
+                return {
+                    ...row,
+                    image: imageUrl 
+                };
             })
         };
 
