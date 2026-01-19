@@ -78,22 +78,24 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
 
     try {
         const result = await pool.query(
-            `SELECT 
-                w.id AS wishlist_id, 
-                w.name AS wishlist_name, 
-                w.user_id AS owner_id,
-                g.id AS gift_id,
-                g.name AS gift_name,
-                g.price,
-                g.priority,
-                g.link,
-                g.notes,
-                g.image_url
-            FROM wishlists w
-            LEFT JOIN gifts g ON w.id = g.wishlist_id
-            WHERE w.share_token = $1 AND w.is_published = true`,
-            [token]
-        );
+    `SELECT 
+        w.id AS wishlist_id, 
+        w.name AS wishlist_name, 
+        w.user_id AS owner_id,
+        u.name AS owner_name,
+        g.id AS gift_id,
+        g.name AS gift_name,
+        g.price,
+        g.priority,
+        g.link,
+        g.notes,
+        g.image_url
+    FROM wishlists w
+    LEFT JOIN users u ON w.user_id = u.id
+    LEFT JOIN gifts g ON w.id = g.wishlist_id
+    WHERE w.share_token = $1 AND w.is_published = true`,
+    [token]
+);
 
         if (result.rowCount === 0) {
             res.status(404).json({ msg: "Wishlist non trovata" });
@@ -103,6 +105,8 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
         const wishlistData = {
             id: result.rows[0].wishlist_id,
             name: result.rows[0].wishlist_name,
+            owner_id: result.rows[0].owner_id,
+            owner_name: result.rows[0].owner_name,
             gifts: result.rows
                 .filter(row => row.gift_id !== null)
                 .map(row => ({
