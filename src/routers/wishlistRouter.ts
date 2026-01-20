@@ -1,4 +1,4 @@
-import {createWishlist, getPublicWishlist, deleteWishlist, updateWishlist, getMyWishlists} from "../controllers/wishlistController";
+import {createWishlist, getPublicWishlist, deleteWishlist, updateWishlist, getMyWishlists, addFavorite} from "../controllers/wishlistController";
 
 import { Router } from "express";
 import authMiddleware from "../middlewares/authMiddleware";
@@ -12,6 +12,6 @@ wishlistRouter.get("/me", authMiddleware,  getMyWishlists);
 wishlistRouter.get("/public/:token", getPublicWishlist);
 wishlistRouter.delete("/:id", authMiddleware, deleteWishlist);
 wishlistRouter.put("/:id", authMiddleware, upload.any(), updateWishlist);
-
+wishlistRouter.post("/favorites", authMiddleware, addFavorite );
 
 export default wishlistRouter;
