@@ -339,6 +339,44 @@ async function addFavorite(req: AuthenticatedRequest, res: Response): Promise<vo
     }
 }
 
+async function removeFavorite(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+        if (!req.user) {
+            res.status(401).json({ msg: "Utente non autenticato" });
+            return;
+        }
+
+        const userId = req.user.id; 
+        const { wishlistId } = req.body;
+
+        if (!wishlistId) {
+            res.status(400).json({ msg: "ID wishlist mancante" });
+            return;
+        }
+
+        const result = await pool.query(
+            `DELETE FROM favorites 
+             WHERE wishlist_id = $1 AND user_id = $2
+             RETURNING *`, 
+            [wishlistId, userId]
+        );
+
+        if (result.rowCount === 0) {
+            res.status(404).json({ msg: "Preferito non trovato" });
+            return;
+        }
+
+        res.status(200).json({
+            msg: "Wishlist rimossa dai preferiti con successo",
+            removed: result.rows[0]
+        });
+
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ msg: "Errore nella rimozione della lista favorita" });
+    }
+}
+
 
 export {
     createWishlist,
@@ -346,5 +384,6 @@ export {
     deleteWishlist,
     updateWishlist,
     getMyWishlists,
-    addFavorite
+    addFavorite,
+    removeFavorite
 }
