@@ -79,7 +79,7 @@ async function createWishlist(req: AuthenticatedRequest, res: Response): Promise
 
 async function getPublicWishlist(req: Request, res: Response): Promise<void> {
     const { token } = req.params; 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const userId = (req as any).user?.id || null; 
 
     try {
         const result = await pool.query(
@@ -96,12 +96,16 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
         g.notes,
         g.is_reserved,
         g.reserve_message,
-        g.image_url
+        g.image_url,
+        EXISTS (
+            SELECT 1 FROM favorites f 
+            WHERE f.wishlist_id = w.id AND f.user_id = $2
+        ) AS is_favorite
     FROM wishlists w
     LEFT JOIN users u ON w.user_id = u.id
     LEFT JOIN gifts g ON w.id = g.wishlist_id
     WHERE w.share_token = $1 AND w.is_published = true`,
-    [token]
+    [token, userId] 
 );
 
         if (result.rowCount === 0) {
@@ -114,6 +118,7 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
             name: result.rows[0].wishlist_name,
             owner_id: result.rows[0].owner_id,
             owner_name: result.rows[0].owner_name,
+            is_favorite: result.rows[0].is_favorite, // <--- Aggiunto qui
             gifts: result.rows
                 .filter(row => row.gift_id !== null)
                 .map(row => ({
@@ -131,7 +136,7 @@ async function getPublicWishlist(req: Request, res: Response): Promise<void> {
 
         res.status(200).json(wishlistData);
     } catch (error) {
-        console.error("ERRORE SERVER:", error); // Controlla questo log nel terminale del backend!
+        console.error("ERRORE SERVER:", error);
         res.status(500).json({ msg: "Errore interno nel recupero della wishlist" });
     }
 }

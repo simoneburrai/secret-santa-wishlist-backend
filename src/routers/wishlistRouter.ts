@@ -11,13 +11,14 @@ import {
 import { Router } from "express";
 import authMiddleware from "../middlewares/authMiddleware";
 import { upload } from "../config/multer";
+import { optionalAuth } from "../middlewares/optionalAuth";
 
 
 const wishlistRouter = Router();
 
 wishlistRouter.post("/",authMiddleware, upload.any(),  createWishlist);
 wishlistRouter.get("/me", authMiddleware,  getMyWishlists);
-wishlistRouter.get("/public/:token", getPublicWishlist);
+wishlistRouter.get("/public/:token", optionalAuth, getPublicWishlist);
 wishlistRouter.delete("/:id", authMiddleware, deleteWishlist);
 wishlistRouter.put("/:id", authMiddleware, upload.any(),  updateWishlist);
 wishlistRouter.post("/favorites", authMiddleware, addFavorite );
